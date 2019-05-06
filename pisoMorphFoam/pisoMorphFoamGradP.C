@@ -43,8 +43,12 @@ Description
 #include "dynamicFvMesh.H"
 #include "primitivePatchInterpolation.H"
 #include "pointPatchField.H"
+#include "turbulenceModel.H"
+#include "RASModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
 
 int main(int argc, char *argv[])
 {
@@ -103,9 +107,48 @@ int main(int argc, char *argv[])
 
 	vectorField &PointPointer = refCast<vectorField>(PointDisplacement.boundaryFieldRef()[patchWallID]);
 	vectorField PointNormalVector = mesh.boundaryMesh()[patchWallID].pointNormals();
+	
+	// Get ahold of the turbulent properties
+	// Extracted from wallShearStress.C code (v2.3)
+	/*autoPtr<incompressible::RASModel> model     
+	(         
+		incompressible::RASModel::New(U, phi, laminarTransport)     
+	);*/
+
+	// const volScalarField& k = lookupObject<volScalarField>("k");
+	const volScalarField& k = turbulence().k();
+	const tmp<scalarField> tnuw = turbulence().nu(patchWallID);
+	const scalarField& nuw = tnuw();
+	Info<< "Nu: " << nuw << nl << endl;
+	
+	const tmp<scalarField> tnutw = turbulence().nut(patchWallID);         
+	const scalarField& nutw = tnutw();
+	Info<< "Nu: " << nutw << nl << endl;
+	
+	const fvPatchVectorField& Uw = turbulence().U().boundaryField()[patchWallID];
+    	const scalarField magGradUw((mag(Uw.snGrad())));
+
+	const scalarField tau = magGradUw*(nutw + nuw);
+	scalarField qbs = Foam::sqrt(Foam::cmptMag(tau))*(tau - scalar(0.6));
+	/*forAll(qbs, index)
+	{
+		scalar qb = qbs[index];
+		if (qb < 0.) 
+		{
+			qbs[index] = 0.;
+		}
+	}*/
+
+	// int nuSize = nuw.size();
+	//scalarField<double> qbed(nuSize);
 
  	forAll(dispVals, index)
 	{
+		//scalar nueff = nutw[index] + nuw[index];
+	        //scalar tau = (nueff*magGradUw[index]);
+                //qbed[index].value() = tau;
+                Info<< "qb " << tau << nl << endl;
+
 		dispVals[index].x() = PointPointer[index].x();
 		dispVals[index].y() = PointPointer[index].y(); //- 100. * PointNormalVector[index].y() * runTime.deltaT().value();
 		dispVals[index].z() = PointPointer[index].z() - 0.01 * runTime.deltaT().value();
