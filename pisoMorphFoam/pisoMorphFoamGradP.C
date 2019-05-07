@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 	
 	//Get the vector field of the patch
 	vectorField &pDisp=refCast<vectorField>(PointDisplacement.boundaryFieldRef()[patchWallID]);
-
+	// https://www.cfd-online.com/Forums/openfoam-programming-development/122557-moving-boundary-problem-based-calculated-data.html#post447552
 	//Find the relevant size of the vector and declare a vectorField.
 	int Psize= pDisp.size();
 	vectorField dispVals(Psize);
@@ -130,28 +130,91 @@ int main(int argc, char *argv[])
 
 	const scalarField tau = magGradUw*(nutw + nuw);
 	scalarField qbs = Foam::sqrt(Foam::cmptMag(tau))*(tau - scalar(0.6));
-	/*forAll(qbs, index)
+	
+	// Get access to the polyPatch
+	const polyPatch& pp = mesh.boundaryMesh()[patchWallID];
+
+	forAll(qbs, index)
 	{
-		scalar qb = qbs[index];
-		if (qb < 0.) 
+		double qbi = qbs[index]; 
+		double qbim1 = 0.0;
+		double xi = pp.faceCentres()[index].x();
+		double xim1 = 0.0; 
+		
+		
+		if (index > 0)
 		{
-			qbs[index] = 0.;
+			qbim1 = qbs[index - 1];
+			xim1 = pp.faceCentres()[index].x() ;
+			xi = pp.faceCentres()[index + 1].x();
 		}
-	}*/
+
+		
+		if (qbi < 0.) 
+		{
+			qbi = 0.;
+		}
+		if (qbim1 < 0.)
+		{
+			qbim1 = 0.;
+		}
+
+		double dx = xi - xim1;
+		double dq = qbi - qbim1;
+		double dz = runTime.deltaT().value()/(2.*dx*(1.-0.4))*dq;
+		
+	}
 
 	// int nuSize = nuw.size();
 	//scalarField<double> qbed(nuSize);
 
+	Info << "qobs " << qbs.size() << endl;
+	// pp size is equal to the number of faces. 
+	Info<< "pp size: " << pp.size() << endl;
+	
+	// Gets the list of points on the patch 
+	const List<vector>& patchFound = mesh.boundaryMesh()[patchWallID].localPoints();
+
  	forAll(dispVals, index)
 	{
-		//scalar nueff = nutw[index] + nuw[index];
-	        //scalar tau = (nueff*magGradUw[index]);
-                //qbed[index].value() = tau;
-                Info<< "qb " << tau << nl << endl;
+		//vector pointX(0,0,0);
+		// vector pos( mesh.Cf().boundaryField()[patchWallID][index] );
+		double x = pp.faceCentres()[index].x();
+		
+		
+		double qbUpwind = 0.0;
+		double qb = 0.0;
+		double xUpwind = 0.0;
+		
+		if (qbs[index] > 0.0)
+		{
+			qb = qbs[index];
+		}
+
+		if (index > 0)
+		{	
+			qbUpwind = qbs[index - 1];
+			if (qbUpwind < 0.)
+			{
+				qbUpwind = 0.;
+			}
+			// vector pos( mesh.Cf().boundaryField()[patchWallID][index] );
+			xUpwind = 0.0;  //pos[0];
+		}
+
+		double dx = x - xUpwind;
+		// Info<<"indx: " << index << " x "  << pp.faceCentres()[index+5].x() << " y " << pp.faceCentres()[index].y() << " z " << pp.faceCentres()[index].z() << endl;
+		// Info<<"------------"<< nl << endl;
+		double dq = qbUpwind - qb;
+		
+		double dz = 0.0; //(runTime.deltaT().value()/(2.*dx*(1-0.4)))*dq;
+		
 
 		dispVals[index].x() = PointPointer[index].x();
 		dispVals[index].y() = PointPointer[index].y(); //- 100. * PointNormalVector[index].y() * runTime.deltaT().value();
-		dispVals[index].z() = PointPointer[index].z() - 0.01 * runTime.deltaT().value();
+		dispVals[index].z() = PointPointer[index].z() - 0.001;
+		Info << "PP x: " << patchFound[index].x() << endl;
+		 
 	} 
 	
 	PointDisplacement.boundaryFieldRef()[patchWallID] == dispVals;	
