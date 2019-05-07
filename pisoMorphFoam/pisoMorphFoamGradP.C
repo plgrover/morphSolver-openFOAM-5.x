@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 	Info<< "PSize: " << Psize << nl << endl;
 
 	//- set-up interpolator
-	primitivePatchInterpolation patchInterpolator (mesh.boundaryMesh()[patchWallID] );
+	//primitivePatchInterpolation patchInterpolator (mesh.boundaryMesh()[patchWallID] );
 
 	/*scalarField MimpPatch = Mimp.boundaryField()[patchWallID];
 
@@ -119,24 +119,33 @@ int main(int argc, char *argv[])
 	const volScalarField& k = turbulence().k();
 	const tmp<scalarField> tnuw = turbulence().nu(patchWallID);
 	const scalarField& nuw = tnuw();
-	Info<< "Nu: " << nuw << nl << endl;
+	// Info<< "Nu: " << nuw << nl << endl;
 	
 	const tmp<scalarField> tnutw = turbulence().nut(patchWallID);         
 	const scalarField& nutw = tnutw();
-	Info<< "Nu: " << nutw << nl << endl;
+	// Info<< "Nu: " << nutw << nl << endl;
 	
 	const fvPatchVectorField& Uw = turbulence().U().boundaryField()[patchWallID];
     	const scalarField magGradUw((mag(Uw.snGrad())));
 
-	const scalarField tau = magGradUw*(nutw + nuw);
-	scalarField qbs = Foam::sqrt(Foam::cmptMag(tau))*(tau - scalar(0.6));
+	//const scalarField tau = magGradUw*(nutw + nuw);
+	const scalar D50 = 0.001;
+	const scalar gammaS = 9.81*(2650. - 1000.);
 	
+	
+	scalarField Y = magGradUw*(nutw + nuw)/scalar(D50*gammaS);
+
+	const scalar Ycr = 0.6/(D50*gammaS);
+
+	scalarField qbs = (0.5*8.5)*(Foam::sqrt(mag(Y)))*(Y - Ycr); 
 	// Get access to the polyPatch
 	const polyPatch& pp = mesh.boundaryMesh()[patchWallID];
+	
+	scalarField dzPatch =  Y * (0);
 
 	forAll(qbs, index)
 	{
-		double qbi = qbs[index]; 
+		double qbi = Y[index]; 
 		double qbim1 = 0.0;
 		double xi = pp.faceCentres()[index].x();
 		double xim1 = 0.0; 
@@ -148,7 +157,10 @@ int main(int argc, char *argv[])
 			xim1 = pp.faceCentres()[index].x() ;
 			xi = pp.faceCentres()[index + 1].x();
 		}
-
+		else
+		{
+			qbim1 = qbs[0];
+		}
 		
 		if (qbi < 0.) 
 		{
@@ -161,9 +173,22 @@ int main(int argc, char *argv[])
 
 		double dx = xi - xim1;
 		double dq = qbi - qbim1;
-		double dz = runTime.deltaT().value()/(2.*dx*(1.-0.4))*dq;
+		if (index < 2)
+		{
+			dzPatch[index] = 0.;
+		}
+		else
+		{
+			dzPatch[index] = runTime.deltaT().value()/(2.*dx*(1.-0.4))*dq;
+		}
 		
 	}
+
+	Info << "dz size " << dzPatch.size() << endl;
+
+	primitivePatchInterpolation patchInterpolator (mesh.boundaryMesh()[patchWallID]);
+	scalarField facedZValues = patchInterpolator.faceToPointInterpolate(dzPatch);
+	Info << "facedzvalues size " << facedZValues.size() << endl;
 
 	// int nuSize = nuw.size();
 	//scalarField<double> qbed(nuSize);
@@ -173,47 +198,18 @@ int main(int argc, char *argv[])
 	Info<< "pp size: " << pp.size() << endl;
 	
 	// Gets the list of points on the patch 
-	const List<vector>& patchFound = mesh.boundaryMesh()[patchWallID].localPoints();
+	const List<vector>& patchFound = mesh.boundaryMesh()[patchWallID].localPoints(); 
 
  	forAll(dispVals, index)
-	{
-		//vector pointX(0,0,0);
-		// vector pos( mesh.Cf().boundaryField()[patchWallID][index] );
-		double x = pp.faceCentres()[index].x();
-		
-		
-		double qbUpwind = 0.0;
-		double qb = 0.0;
-		double xUpwind = 0.0;
-		
-		if (qbs[index] > 0.0)
+	{	
+		/*if (facedZValues[index] > 0.0)
 		{
-			qb = qbs[index];
-		}
-
-		if (index > 0)
-		{	
-			qbUpwind = qbs[index - 1];
-			if (qbUpwind < 0.)
-			{
-				qbUpwind = 0.;
-			}
-			// vector pos( mesh.Cf().boundaryField()[patchWallID][index] );
-			xUpwind = 0.0;  //pos[0];
-		}
-
-		double dx = x - xUpwind;
-		// Info<<"indx: " << index << " x "  << pp.faceCentres()[index+5].x() << " y " << pp.faceCentres()[index].y() << " z " << pp.faceCentres()[index].z() << endl;
-		// Info<<"------------"<< nl << endl;
-		double dq = qbUpwind - qb;
-		
-		double dz = 0.0; //(runTime.deltaT().value()/(2.*dx*(1-0.4)))*dq;
-		
-
+			Info<< "Dz: " << facedZValues[index] << endl;
+		}*/
 		dispVals[index].x() = PointPointer[index].x();
 		dispVals[index].y() = PointPointer[index].y(); //- 100. * PointNormalVector[index].y() * runTime.deltaT().value();
-		dispVals[index].z() = PointPointer[index].z() - 0.001;
-		Info << "PP x: " << patchFound[index].x() << endl;
+		dispVals[index].z() = PointPointer[index].z() - facedZValues[index];
+		// Info << "PP x: " << patchFound[index].x() << endl;
 		 
 	} 
 	
