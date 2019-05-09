@@ -45,34 +45,13 @@ Description
 #include "pointPatchField.H"
 #include "turbulenceModel.H"
 #include "RASModel.H"
+// #include <math.h>       /* atan */
+#define PI 3.14159265
 
-// #include "Avalanche.H"
+
+#include "Avalanche.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-static scalarField getSlope(scalarField x, scalarField z)
-{
-	int n = x.size();
-	scalarField slope(n);
-	forAll(x, index)
-	{
-		slope[index] = z[index];
-	}
-	return slope;
-}
-
-
-static void avalancheProfile 
-	(
-		vectorField& faceCentres          
-	) 
-	{         
-		int n = faceCentres.size(); 
-		scalarField zArray(n);
-		scalarField xArray(n);
-
-		scalarField slope = getSlope(zArray, xArray); 
-		Info << "xField " << faceCentres.size() << endl; //<< faceCentres.size() << endl;  
-}
 
 
 
@@ -199,7 +178,7 @@ int main(int argc, char *argv[])
 		{
 			dzPatch[index] = runTime.deltaT().value()/(2.*dx*(1.-0.4))*dq;
 		}
-		Info << "Ycr " << Ycr << "  Y: " << Y[index] << " dq " << dq << " dz: " << dzPatch[index] << endl;		
+		// Info << "Ycr " << Ycr << "  Y: " << Y[index] << " dq " << dq << " dz: " << dzPatch[index] << endl;		
 	}
 
 	Info << "dz size " << dzPatch.size() << endl;
@@ -216,7 +195,12 @@ int main(int argc, char *argv[])
 	Info<< "pp size: " << pp.size() << endl;
 	
 	// Gets the list of points on the patch 
-	const List<vector>& patchFound = mesh.boundaryMesh()[patchWallID].localPoints(); 
+	//const List<vector>& patchFound = mesh.boundaryMesh()[patchWallID].localPoints(); 
+
+    // Testing Avalanche here
+	vectorField test = pp.faceCentres();
+	// Info << "Type of " << TypeNameNoDebug(pp.faceCentres()) << endl;
+	avalancheProfile(test, 15.0, 15.2, 15.4); // pp.faceCentres, 30., 30., 30.);
 
  	forAll(dispVals, index)
 	{	
@@ -233,10 +217,7 @@ int main(int argc, char *argv[])
 	
 	PointDisplacement.boundaryFieldRef()[patchWallID] == dispVals;	
 	
-	// Testing Avalanche here
-	vectorField test = pp.faceCentres();
-	// Info << "Type of " << TypeNameNoDebug(pp.faceCentres()) << endl;
-	avalancheProfile(test); // pp.faceCentres, 30., 30., 30.);
+	
 	
 	// - End of update meths 
 	mesh.update();
