@@ -46,7 +46,33 @@ Description
 #include "turbulenceModel.H"
 #include "RASModel.H"
 
+// #include "Avalanche.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+static scalarField getSlope(scalarField x, scalarField z)
+{
+	int n = x.size();
+	scalarField slope(n);
+	forAll(x, index)
+	{
+		slope[index] = z[index];
+	}
+	return slope;
+}
+
+
+static void avalancheProfile 
+	(
+		vectorField& faceCentres          
+	) 
+	{         
+		int n = faceCentres.size(); 
+		scalarField zArray(n);
+		scalarField xArray(n);
+
+		scalarField slope = getSlope(zArray, xArray); 
+		Info << "xField " << faceCentres.size() << endl; //<< faceCentres.size() << endl;  
+}
 
 
 
@@ -62,7 +88,7 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #include "createFvOptions.H"
     #include "initContinuityErrs.H"
-    
+    // #include "Avalanche.H"    
 
     turbulence->validate();
 
@@ -97,26 +123,10 @@ int main(int argc, char *argv[])
 
 	Info<< "PSize: " << Psize << nl << endl;
 
-	//- set-up interpolator
-	//primitivePatchInterpolation patchInterpolator (mesh.boundaryMesh()[patchWallID] );
-
-	/*scalarField MimpPatch = Mimp.boundaryField()[patchWallID];
-
-	//- perform interpolation
-	scalarField faceValues = patchInterpolator.faceToPointInterpolate(MimpPatch); */
-
 	vectorField &PointPointer = refCast<vectorField>(PointDisplacement.boundaryFieldRef()[patchWallID]);
 	vectorField PointNormalVector = mesh.boundaryMesh()[patchWallID].pointNormals();
 	
 	// Get ahold of the turbulent properties
-	// Extracted from wallShearStress.C code (v2.3)
-	/*autoPtr<incompressible::RASModel> model     
-	(         
-		incompressible::RASModel::New(U, phi, laminarTransport)     
-	);*/
-
-	// const volScalarField& k = lookupObject<volScalarField>("k");
-	const volScalarField& k = turbulence().k();
 	const tmp<scalarField> tnuw = turbulence().nu(patchWallID);
 	const scalarField& nuw = tnuw();
 	// Info<< "Nu: " << nuw << nl << endl;
@@ -133,19 +143,27 @@ int main(int argc, char *argv[])
 	const scalar gammaS = 9.81*(2650. - 1000.);
 	
 	
-	scalarField Y = magGradUw*(nutw + nuw)/scalar(D50*gammaS);
+	scalarField Y = (1000.)*magGradUw*(nutw + nuw)/scalar(D50*gammaS);
+	
+	scalarField tau = (nuw + nutw)*magGradUw*scalar(1000.);
+
+	//Info << "Tau " << tau << endl;
 
 	const scalar Ycr = 0.6/(D50*gammaS);
+			
 
 	scalarField qbs = (0.5*8.5)*(Foam::sqrt(mag(Y)))*(Y - Ycr); 
 	// Get access to the polyPatch
+
+	// Info << "qbs: " << qbs << endl; 
+
 	const polyPatch& pp = mesh.boundaryMesh()[patchWallID];
 	
 	scalarField dzPatch =  Y * (0);
 
 	forAll(qbs, index)
 	{
-		double qbi = Y[index]; 
+		double qbi = qbs[index]; 
 		double qbim1 = 0.0;
 		double xi = pp.faceCentres()[index].x();
 		double xim1 = 0.0; 
@@ -181,7 +199,7 @@ int main(int argc, char *argv[])
 		{
 			dzPatch[index] = runTime.deltaT().value()/(2.*dx*(1.-0.4))*dq;
 		}
-		
+		Info << "Ycr " << Ycr << "  Y: " << Y[index] << " dq " << dq << " dz: " << dzPatch[index] << endl;		
 	}
 
 	Info << "dz size " << dzPatch.size() << endl;
@@ -214,7 +232,11 @@ int main(int argc, char *argv[])
 	} 
 	
 	PointDisplacement.boundaryFieldRef()[patchWallID] == dispVals;	
-
+	
+	// Testing Avalanche here
+	vectorField test = pp.faceCentres();
+	// Info << "Type of " << TypeNameNoDebug(pp.faceCentres()) << endl;
+	avalancheProfile(test); // pp.faceCentres, 30., 30., 30.);
 	
 	// - End of update meths 
 	mesh.update();
