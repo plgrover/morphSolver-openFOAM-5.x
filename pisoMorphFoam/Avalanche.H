@@ -132,7 +132,7 @@ static double func(double zTarget, scalarField xloc, scalarField zloc, double ta
     ztmp[3]=0.0;
     ztmp[4]=0.0;
     ztmp[5]=0.0;
-    ztmp[6]=ztmp[0];
+    ztmp[6]=zloc[0];
 
     int j = numPoints -1;
 
@@ -172,7 +172,7 @@ static double getAreaPolygon(scalarField xloc, scalarField zloc)
     ztmp[3]=0.0;
     ztmp[4]=0.0;
     ztmp[5]=0.0;
-    ztmp[6]=ztmp[0];
+    ztmp[6]=zloc[0];
 
     int j = numPoints -1;
 
@@ -191,7 +191,7 @@ static double bisect(scalarField xloc, scalarField zloc, double targetArea)
     double a = -1.0;
     double b = 100.;
     double c = a; 
-    double TOL = -0.001;
+    double TOL = 0.0001;
 
     int iteration = 0;
     
@@ -199,18 +199,21 @@ static double bisect(scalarField xloc, scalarField zloc, double targetArea)
     { 
         // Find middle point 
         c = (a+b)/2.; 
-        double cArea = func(c, xloc, zloc, targetArea);
-        double aArea = func(a, xloc, zloc, targetArea);
+        double cError = func(c, xloc, zloc, targetArea);
+        double aError = func(a, xloc, zloc, targetArea);
         // Check if middle point is root 
-        if ( cArea == 0.0) 
+        if ( fabs(cError) < TOL)
+	{
+	    // Info << "Final bisect error " << fabs(cError) << " Iteration " << iteration << endl; 
             break; 
-  
+	}  
         // Decide the side to repeat the steps 
-        else if ( cArea*aArea < 0) 
+        else if ( cError*aError < 0) 
             b = c; 
         else
             a = c; 
         iteration += 1;
+	// Info << "Bisect error " << cError << endl;
     } 
     return c;
 }
@@ -244,12 +247,12 @@ static double adjustToTarget(
 
 // Adjusts the profile using the Avalanche Scheme
 static void avalancheProfile 
-	(
-		vectorField& faceCentres,
+(
+	vectorField& faceCentres,
         double thresholdAngle,
         double adjustmentAngle,
         double angleOfRepose
-	) 
+) 
 {         
     int nSize = faceCentres.size(); 
     scalarField zArray(nSize);      // Current z elevations
@@ -258,7 +261,7 @@ static void avalancheProfile
     
 
     int maxIterations = 100;    // Hard coding this 
-    double factor = 0.1;         // Another hard coded value
+    double factor = 0.65;         // Another hard coded value
 
     // Populate the coordinates into the scalarFields
     forAll(faceCentres, index)
@@ -297,7 +300,7 @@ static void avalancheProfile
                 if (min(localSlope) < angleOfRepose*-1.0)
                 {
 
-                    // Info << " Sub slope " << slope << endl;
+                    // Info << " Sub slope " << localSlope << endl;
 
                     double oldArea = getAreaPolygon(xloc, zloc);
                     // Calculate the adjustment to the z to match the angle of repose 
@@ -310,7 +313,7 @@ static void avalancheProfile
                     }
                     else
                     {
-                        zArrayNew[index] -= dz*0.9;
+                        zArrayNew[index] -= dz*0.65;
                     }
                     
                     // Get the new stencil 
@@ -320,8 +323,8 @@ static void avalancheProfile
                     double newArea = getAreaPolygon(xloc, zlocNew);
                     double deltaArea = oldArea - newArea;
 
-                    Info << "Old area: " << oldArea << " New Area: " << newArea << endl;
-                    Info << "deltaArea: " << deltaArea << endl;
+                    // Info << "Old area: " << oldArea << " New Area: " << newArea << endl;
+                    // Info << "deltaArea: " << deltaArea << endl;
 
                     // The mass moved from the current index needs to be moved
                     // downstream to the next node.
@@ -339,17 +342,17 @@ static void avalancheProfile
                         zArrayNew[index + 1] = zNew; 
                     }
                     bedChanged = true;
-                }
-            }   
+                } // if min slope
+            } // forAll   
             forAll(zArray, index)
             {
                 zArray[index] = zArrayNew[index];
             }
-        }
-    }
+        } // while
+    } // end if on slope
     Info << "-------------------------" << endl;
     Info << "Z Bed Final" << zArray << endl;
     Info << "-------------------------" << endl;
     // return zArray;
-}
+} // end
 
