@@ -246,7 +246,7 @@ static double adjustToTarget(
 }
 
 // Adjusts the profile using the Avalanche Scheme
-static void avalancheProfile 
+static scalarField avalancheProfile 
 (
 	vectorField& faceCentres,
         double thresholdAngle,
@@ -350,9 +350,6 @@ static void avalancheProfile
             }
         } // while
     } // end if on slope
-    Info << "-------------------------" << endl;
-    Info << "Z Bed Final" << zArray << endl;
-    Info << "-------------------------" << endl;
-    // return zArray;
+    return zArray;
 } // end
 

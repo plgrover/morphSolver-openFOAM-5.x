@@ -197,10 +197,11 @@ int main(int argc, char *argv[])
 	// Gets the list of points on the patch 
 	//const List<vector>& patchFound = mesh.boundaryMesh()[patchWallID].localPoints(); 
 
-    // Testing Avalanche here
+    	// Testing Avalanche here
 	vectorField test = pp.faceCentres();
 	// Info << "Type of " << TypeNameNoDebug(pp.faceCentres()) << endl;
 	avalancheProfile(test, 15.0, 15.2, 15.4); // pp.faceCentres, 30., 30., 30.);
+        Info << "Final profile " << test << endl;		
 
  	forAll(dispVals, index)
 	{	
