@@ -248,37 +248,31 @@ static double adjustToTarget(
 // Adjusts the profile using the Avalanche Scheme
 static scalarField avalancheProfile 
 (
-	vectorField& faceCentres,
+	scalarField& xArray,
+	scalarField& zArray,
         double thresholdAngle,
         double adjustmentAngle,
         double angleOfRepose
 ) 
 {         
-    int nSize = faceCentres.size(); 
-    scalarField zArray(nSize);      // Current z elevations
-    scalarField xArray(nSize);      // Current x locations
+    int nSize = zArray.size(); 
+    //scalarField zArray(nSize);      // Current z elevations
+    //scalarField xArray(nSize);      // Current x locations
     scalarField zArrayNew(nSize);   // Array to hold changes to z
     
 
     int maxIterations = 100;    // Hard coding this 
-    double factor = 0.65;         // Another hard coded value
+    double factor = 0.1;         // Another hard coded value
 
     // Populate the coordinates into the scalarFields
-    forAll(faceCentres, index)
+    forAll(xArray, index)
     {
-        xArray[index] = faceCentres[index].x();
-        zArray[index] = faceCentres[index].z();
-        zArrayNew[index] = faceCentres[index].z();
+    	zArrayNew[index] = zArray[index];
     }      
     
 
     scalarField slope = getSlope(xArray,zArray); 
-    Info << "Max slope " << max(slope) << " Min slope " << min(slope) << endl; 
-
-    Info << "-------------------------" << endl;
-    Info << "Z Bed inital" << zArray << endl;
-    Info << "-------------------------" << endl;
-    
+   
     // Check if the bed slope exceeds the threshold angle
     double minSlope = min(slope);
     int iterations = 0;

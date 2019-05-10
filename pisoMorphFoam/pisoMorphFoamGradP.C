@@ -125,11 +125,11 @@ int main(int argc, char *argv[])
 	scalarField Y = (1000.)*magGradUw*(nutw + nuw)/scalar(D50*gammaS);
 	
 	scalarField tau = (nuw + nutw)*magGradUw*scalar(1000.);
-
 	//Info << "Tau " << tau << endl;
 
 	const scalar Ycr = 0.6/(D50*gammaS);
-			
+	
+	int nSize = Y.size(); 			
 
 	scalarField qbs = (0.5*8.5)*(Foam::sqrt(mag(Y)))*(Y - Ycr); 
 	// Get access to the polyPatch
@@ -138,14 +138,18 @@ int main(int argc, char *argv[])
 
 	const polyPatch& pp = mesh.boundaryMesh()[patchWallID];
 	
-	scalarField dzPatch =  Y * (0);
+	scalarField newZPatch(nSize, 0);
+	scalarField xPatch(nSize, 0);
+	scalarField dzPatch(nSize, 0);
 
 	forAll(qbs, index)
 	{
 		double qbi = qbs[index]; 
 		double qbim1 = 0.0;
 		double xi = pp.faceCentres()[index].x();
+		double zi = pp.faceCentres()[index].z();
 		double xim1 = 0.0; 
+		xPatch[index] = xi;
 		
 		
 		if (index > 0)
@@ -169,41 +173,38 @@ int main(int argc, char *argv[])
 		}
 
 		double dx = xi - xim1;
-		double dq = qbi - qbim1;
-		if (index < 2)
+		double dq = qbim1 - qbi;
+		if (index < 30)
 		{
-			dzPatch[index] = 0.;
+			dzPatch[index] = 0.0;
 		}
 		else
 		{
-			dzPatch[index] = runTime.deltaT().value()/(2.*dx*(1.-0.4))*dq;
+			// newZPatch[index] = zi + runTime.deltaT().value()/(2.*dx*(1.-0.4))*dq;
+			dzPatch[index] = runTime.deltaT().value()/(dx*(1.-0.4))*dq;
 		}
 		// Info << "Ycr " << Ycr << "  Y: " << Y[index] << " dq " << dq << " dz: " << dzPatch[index] << endl;		
 	}
 
-	Info << "dz size " << dzPatch.size() << endl;
+	// Info << "dz size " << dzPatch.size() << endl;
+
+	// Now update the bed profile
+	// newZPatch = avalancheProfile(xPatch, newZPatch, 31.0, 30.0, 29.0); // pp.faceCentres, 30., 30., 30.);
+        //Info << "Final profile " << newZPatch << endl;		
+	
+	
+	//scalarField dzPatch(nSize, 0);;
+	/*forAll(dzPatch, index)
+	{	
+		dzPatch[index] = pp.faceCentres()[index].z() - newZPatch[index]; 
+	}*/
 
 	primitivePatchInterpolation patchInterpolator (mesh.boundaryMesh()[patchWallID]);
 	scalarField facedZValues = patchInterpolator.faceToPointInterpolate(dzPatch);
 	Info << "facedzvalues size " << facedZValues.size() << endl;
 
-	// int nuSize = nuw.size();
-	//scalarField<double> qbed(nuSize);
-
-	Info << "qobs " << qbs.size() << endl;
-	// pp size is equal to the number of faces. 
-	Info<< "pp size: " << pp.size() << endl;
-	
-	// Gets the list of points on the patch 
-	//const List<vector>& patchFound = mesh.boundaryMesh()[patchWallID].localPoints(); 
-
-    	// Testing Avalanche here
-	vectorField test = pp.faceCentres();
-	// Info << "Type of " << TypeNameNoDebug(pp.faceCentres()) << endl;
-	avalancheProfile(test, 15.0, 15.2, 15.4); // pp.faceCentres, 30., 30., 30.);
-        Info << "Final profile " << test << endl;		
-
- 	forAll(dispVals, index)
+			
+	forAll(dispVals, index)
 	{	
 		/*if (facedZValues[index] > 0.0)
 		{
@@ -211,9 +212,8 @@ int main(int argc, char *argv[])
 		}*/
 		dispVals[index].x() = PointPointer[index].x();
 		dispVals[index].y() = PointPointer[index].y(); //- 100. * PointNormalVector[index].y() * runTime.deltaT().value();
-		dispVals[index].z() = PointPointer[index].z() - facedZValues[index];
+		dispVals[index].z() = PointPointer[index].z()  + facedZValues[index];
 		// Info << "PP x: " << patchFound[index].x() << endl;
-		 
 	} 
 	
 	PointDisplacement.boundaryFieldRef()[patchWallID] == dispVals;	
